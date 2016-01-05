@@ -1,5 +1,8 @@
 var five = require("johnny-five");
+var cam = require("./cam.js");
 var board = new five.Board({});
+
+var camera = new cam();
 
 board.on("ready", function() {
   // Create an Led on pin 13
@@ -18,6 +21,7 @@ board.on("ready", function() {
   motion.on("motionstart", function() {
     console.log("on");
     led.on();
+    camera.start();
   });
 
   // "motionend" events are fired following a "motionstart" event
@@ -25,7 +29,7 @@ board.on("ready", function() {
   motion.on("motionend", function() {
     console.log("off");
     led.off();
-
+    camera.stop();
   });
 
 });
