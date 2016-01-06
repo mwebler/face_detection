@@ -40,9 +40,21 @@ module.exports = function() {
           .crop(width, height, x, y)
           .toBuffer('JPG',function (err, buffer) {
             if (err) return handle(err);
-            console.log('done!');
-          })
+            visitor = {
+              faceId: face.faceId,
+              age: face.age,
+              gender: face.gender,
+              smile: face.smile,
+              facialHair: {
+                mustache: face.facialHair.mustache,
+                beard: face.facialHair.beard,
+                sideburns: face.facialHair.sideburns
+              },
+              img: buffer
+            }
+            currentVisitors.push(visitor);
 
+          });
         }
 
       });
