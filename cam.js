@@ -9,15 +9,11 @@ module.exports = function() {
 
   var currentVisitors = [];
 
-  function new_photo(filename){
-    console.log('send photo: ' + filename);
-
-    var file = fs.readFileSync(filename);
-
+  function new_photo(file){
     var header = {
       "Content-Type": "application/octet-stream",
       "Ocp-Apim-Subscription-Key": "dbdba48816c44af8b9e40edff7d5a818"
-     }
+    }
 
     var req = https.request({
       hostname: 'api.projectoxford.ai',
@@ -29,20 +25,26 @@ module.exports = function() {
       console.log('HEADERS: ' + JSON.stringify(res.headers));
       res.setEncoding('utf8');
       res.on('data', function (chunk) {
-        var parsed = JSON.parse(chunk);
-        console.log(parsed);
-      var width = parsed[0].faceRectangle.width;
-      var height = parsed[0].faceRectangle.height;
-      var x = parsed[0].faceRectangle.left;
-      var y = parsed[0].faceRectangle.top;
-      console.log(width + ' ' + height + ' ' + x + ' ' + y);
+        var faces = JSON.parse(chunk);
+        console.log(faces);
 
-        gm(file, 'img.jpg').
-          crop(width, height, x, y)
-          .write('out.jpg', function (err) {
+        for (var i = 0; i < faces.length; i++) {
+          var face = faces[i];
+          var width = face.faceRectangle.width;
+          var height = face.faceRectangle.height;
+          var x = face.faceRectangle.left;
+          var y = face.faceRectangle.top;
+          console.log(width + ' ' + height + ' ' + x + ' ' + y);
+
+          gm(file)
+          .crop(width, height, x, y)
+          .toBuffer('JPG',function (err, buffer) {
             if (err) return handle(err);
-            console.log('Created an image from a Buffer!');
-          });
+            console.log('done!');
+          })
+
+        }
+
       });
       res.on('end', function() {
         console.log('No more data in response.')
@@ -59,10 +61,13 @@ module.exports = function() {
   }
 
   function capture(){
-    var camera = new raspicam({ mode:"photo", output:"img.jpg", w:800, h:600, t: 1});
+    var camera = new raspicam({ mode:"photo", output:"img.jpg", w:1024, h:768, t: 1});
     camera.start();
     camera.on("exit", function(err, filename){
-      new_photo("img.jpg");
+      console.log('send photo: ' + "img.jpg");
+
+      var file = fs.readFileSync("img.jpg");
+      new_photo(file);
     });
   }
 
