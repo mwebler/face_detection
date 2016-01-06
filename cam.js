@@ -12,17 +12,15 @@ module.exports = function() {
   function new_photo(file){
     var header = {
       "Content-Type": "application/octet-stream",
-      "Ocp-Apim-Subscription-Key": "dbdba48816c44af8b9e40edff7d5a818"
+      "Ocp-Apim-Subscription-Key": "8472487fa26441be88add23236b26a6c"
     }
 
     var req = https.request({
       hostname: 'api.projectoxford.ai',
-      path: '/emotion/v1.0/recognize?',
+      path: '/face/v1.0/detect?returnFaceId=true&returnFaceLandmarks=false&returnFaceAttributes=age,gender',
       method: 'POST',
       headers: header,
     }, function(res) {
-      console.log('STATUS: ' + res.statusCode);
-      console.log('HEADERS: ' + JSON.stringify(res.headers));
       res.setEncoding('utf8');
       res.on('data', function (chunk) {
         var faces = JSON.parse(chunk);
@@ -44,12 +42,6 @@ module.exports = function() {
               faceId: face.faceId,
               age: face.age,
               gender: face.gender,
-              smile: face.smile,
-              facialHair: {
-                mustache: face.facialHair.mustache,
-                beard: face.facialHair.beard,
-                sideburns: face.facialHair.sideburns
-              },
               img: buffer
             }
             currentVisitors.push(visitor);
