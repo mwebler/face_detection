@@ -1,58 +1,78 @@
 var raspicam = require("raspicam");
 var fs = require('fs');
 var https = require('https');
+var gm = require('gm').subClass({imageMagick: true});
 
 module.exports = function() {
 
   var objInterval = null;
 
+  var currentVisitors = [];
+
+  function new_photo(filename){
+    console.log('send photo: ' + filename);
+
+    var file = fs.readFileSync(filename);
+
+    var header = {
+      "Content-Type": "application/octet-stream",
+      "Ocp-Apim-Subscription-Key": "dbdba48816c44af8b9e40edff7d5a818"
+     }
+
+    var req = https.request({
+      hostname: 'api.projectoxford.ai',
+      path: '/emotion/v1.0/recognize?',
+      method: 'POST',
+      headers: header,
+    }, function(res) {
+      console.log('STATUS: ' + res.statusCode);
+      console.log('HEADERS: ' + JSON.stringify(res.headers));
+      res.setEncoding('utf8');
+      res.on('data', function (chunk) {
+        var parsed = JSON.parse(chunk);
+        console.log(parsed);
+      var width = parsed[0].faceRectangle.width;
+      var height = parsed[0].faceRectangle.height;
+      var x = parsed[0].faceRectangle.left;
+      var y = parsed[0].faceRectangle.top;
+      console.log(width + ' ' + height + ' ' + x + ' ' + y);
+
+        gm(file, 'img.jpg').
+          crop(width, height, x, y)
+          .write('out.jpg', function (err) {
+            if (err) return handle(err);
+            console.log('Created an image from a Buffer!');
+          });
+      });
+      res.on('end', function() {
+        console.log('No more data in response.')
+      })
+    });
+
+    req.on('error', function(e) {
+      console.log('problem with request: ' + e.message);
+    });
+
+    // write data to request body
+    req.write(file);
+    req.end();
+  }
+
   function capture(){
     var camera = new raspicam({ mode:"photo", output:"img.jpg", w:800, h:600, t: 1});
     camera.start();
     camera.on("exit", function(err, filename){
-      var file = fs.readFileSync("img.jpg");
-      console.log('send photo');
-
-      var header = {
-        "Content-Type": "application/octet-stream",
-        "Ocp-Apim-Subscription-Key": "dbdba48816c44af8b9e40edff7d5a818"
-       }
-
-      var req = https.request({
-        hostname: 'api.projectoxford.ai',
-        path: '/emotion/v1.0/recognize?',
-        method: 'POST',
-        headers: header,
-      }, function(res) {
-        console.log('STATUS: ' + res.statusCode);
-        console.log('HEADERS: ' + JSON.stringify(res.headers));
-        res.setEncoding('utf8');
-        res.on('data', function (chunk) {
-          var parsed = JSON.parse(chunk);
-          console.log(parsed);
-        });
-        res.on('end', function() {
-          console.log('No more data in response.')
-        })
-      });
-
-      req.on('error', function(e) {
-        console.log('problem with request: ' + e.message);
-      });
-
-      // write data to request body
-      req.write(file);
-      req.end();
+      new_photo("img.jpg");
     });
   }
 
   return {
     start: function() {
-      this.objInterval = setInterval(capture, 5000);
+      objInterval = setInterval(capture, 5000);
     },
 
     stop: function(){
-      clearInterval(this.objInterval)
+      clearInterval(objInterval)
     }
   }
 };

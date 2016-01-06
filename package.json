@@ -4,6 +4,7 @@
   "description": "Face detection",
   "main": "index.js",
   "dependencies": {
+    "gm": "^1.21.1",
     "https": "^1.0.0",
     "johnny-five": "^0.9.17",
     "raspicam": "^0.2.13"
