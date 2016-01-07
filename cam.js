@@ -9,6 +9,15 @@ module.exports = function() {
 
   var emotionStack = [];
 
+  function getHighestEmotion(face) {
+    var emotion = Object.keys(face.scores)
+    .reduce(function(keya, keyb) {
+      return parseFloat(face.scores[keya]) > parseFloat(face.scores[keyb]) ? keya : keyb;
+    });
+
+    return emotion;
+  }
+
   function detectEmotions(){
     var visitor = emotionStack.pop();
     if(visitor == null)
@@ -30,6 +39,9 @@ module.exports = function() {
         var faces = JSON.parse(chunk);
         console.log(chunk);
         console.log(faces);
+        var face = faces[0]; //there sould be only 1 face
+        var emotion = getHighestEmotion(face);
+
       });
       res.on('end', function() {
         console.log('No more data in response.')
