@@ -9,6 +9,11 @@ module.exports = function() {
 
   var emotionStack = [];
 
+  var visitors = [];
+  function saveVisitor(visitor) {
+    visitors.push(visitor);
+  }
+
   function getHighestEmotion(face) {
     var emotion = Object.keys(face.scores)
     .reduce(function(keya, keyb) {
@@ -41,7 +46,8 @@ module.exports = function() {
         console.log(faces);
         var face = faces[0]; //there sould be only 1 face
         var emotion = getHighestEmotion(face);
-
+        visitor.emotion = emotion;
+        saveVisitor(visitor);
       });
       res.on('end', function() {
         console.log('No more data in response.')
@@ -100,6 +106,7 @@ module.exports = function() {
               },
               img: buffer
             }
+            visitor.date = Date();
             emotionStack.unshift(visitor);
 
           });
@@ -133,8 +140,8 @@ module.exports = function() {
 
   return {
     start: function() {
-      objInterval = setInterval(capture, 5000);
-      objDetectEmotionInterval = setInterval(detectEmotions, 5000);
+      objInterval = setInterval(capture, 5000); //max of 20 per minute
+      objDetectEmotionInterval = setInterval(detectEmotions, 3500); //max of 20 per minute
     },
 
     stop: function(){
