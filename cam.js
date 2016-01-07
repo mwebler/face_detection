@@ -7,7 +7,43 @@ module.exports = function() {
 
   var objInterval = null;
 
-  var currentVisitors = [];
+  var emotionStack = [];
+
+  function detectEmotions(){
+    var visitor = emotionStack.pop();
+    if(visitor == null)
+      return;
+
+    var header = {
+      "Content-Type": "application/octet-stream",
+      "Ocp-Apim-Subscription-Key": "dbdba48816c44af8b9e40edff7d5a818"
+    }
+
+    var req = https.request({
+      hostname: 'api.projectoxford.ai',
+      path: '/emotion/v1.0/recognize?',
+      method: 'POST',
+      headers: header,
+    }, function(res) {
+      res.setEncoding('utf8');
+      res.on('data', function (chunk) {
+        var faces = JSON.parse(chunk);
+        console.log(chunk);
+        console.log(faces);
+      });
+      res.on('end', function() {
+        console.log('No more data in response.')
+      })
+    });
+
+    req.on('error', function(e) {
+      console.log('problem with request: ' + e.message);
+    });
+
+    // write data to request body
+    req.write(visitor.img);
+    req.end();
+  }
 
   function new_photo(file){
     var header = {
@@ -17,13 +53,14 @@ module.exports = function() {
 
     var req = https.request({
       hostname: 'api.projectoxford.ai',
-      path: '/face/v1.0/detect?returnFaceId=true&returnFaceLandmarks=false&returnFaceAttributes=age,gender',
+      path: '/face/v1.0/detect?returnFaceId=true&returnFaceLandmarks=false&returnFaceAttributes=age,gender,smile,facialHair',
       method: 'POST',
       headers: header,
     }, function(res) {
       res.setEncoding('utf8');
       res.on('data', function (chunk) {
         var faces = JSON.parse(chunk);
+        console.log(chunk);
         console.log(faces);
 
         for (var i = 0; i < faces.length; i++) {
@@ -33,18 +70,25 @@ module.exports = function() {
           var x = face.faceRectangle.left;
           var y = face.faceRectangle.top;
           console.log(width + ' ' + height + ' ' + x + ' ' + y);
-
+          console.log(face.faceAttributes.facialHair);
+          console.log(face.faceAttributes.gender);
           gm(file)
           .crop(width, height, x, y)
           .toBuffer('JPG',function (err, buffer) {
             if (err) return handle(err);
             visitor = {
               faceId: face.faceId,
-              age: face.age,
-              gender: face.gender,
+              age: face.faceAttributes.age,
+              gender: face.faceAttributes.gender,
+              smile: face.faceAttributes.smile,
+              facialHair: {
+                mustache: face.faceAttributes.facialHair.mustache,
+                beard: face.faceAttributes.facialHair.beard,
+                sideburns: face.faceAttributes.facialHair.sideburns
+              },
               img: buffer
             }
-            currentVisitors.push(visitor);
+            emotionStack.unshift(visitor);
 
           });
         }
@@ -78,6 +122,7 @@ module.exports = function() {
   return {
     start: function() {
       objInterval = setInterval(capture, 5000);
+      objDetectEmotionInterval = setInterval(detectEmotions, 5000);
     },
 
     stop: function(){
