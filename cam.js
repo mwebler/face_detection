@@ -6,8 +6,12 @@ var gm = require('gm').subClass({imageMagick: true});
 module.exports = function() {
 
   var objInterval = null;
+  var findSimilarInterval = null;
+  var faceListid = "matheusweblerdkom";
 
   var emotionStack = [];
+  var similarStack = [];
+  var faceList = [];
 
   var visitors = [];
   function saveVisitor(visitor) {
@@ -42,18 +46,14 @@ module.exports = function() {
       res.setEncoding('utf8');
       res.on('data', function (chunk) {
         var faces = JSON.parse(chunk);
-        console.log(chunk);
-        console.log(faces);
+      //  console.log(chunk);
+      //  console.log(faces);
         var face = faces[0]; //there sould be only 1 face
         var emotion = getHighestEmotion(face);
         visitor.emotion = emotion;
         saveVisitor(visitor);
       });
-      res.on('end', function() {
-        console.log('No more data in response.')
-      })
     });
-
     req.on('error', function(e) {
       console.log('problem with request: ' + e.message);
     });
@@ -61,6 +61,70 @@ module.exports = function() {
     // write data to request body
     req.write(visitor.img);
     req.end();
+  }
+
+  function addFace(visitor) {
+    faceList.push(visitor.faceId);
+  }
+
+  function findSimilar(){
+
+    var visitor = similarStack.pop();
+    if(visitor == null)
+      return;
+
+      console.log("check similar");
+      console.log("facelist size: " + faceList.length);
+
+      var header = {
+        "Content-Type": "application/json",
+        "Ocp-Apim-Subscription-Key": "8472487fa26441be88add23236b26a6c"
+      }
+
+      var reqBody = {
+        faceId: visitor.faceId,
+        faceIds: faceList,
+        maxNumOfCandidatesReturned: 1
+      };
+
+      var req = https.request({
+        hostname: 'api.projectoxford.ai',
+        path: '/face/v1.0/findsimilars',
+        method: 'POST',
+        headers: header,
+      }, function(res) {
+        res.setEncoding('utf8');
+        res.on('data', function (chunk) {
+          var faces = JSON.parse(chunk);
+          console.log(chunk);
+          if(faces.error != null || faces.length == 0){
+            console.log("add face");
+            addFace(visitor);
+          }
+
+          var face = faces[0];
+          if(!face)
+            return;
+
+          if(face.confidence >= 0.6)
+            console.log("same face found");
+          else{
+            console.log("its a new face");
+            addFace(visitor);
+          }
+        });
+      }
+    );
+
+
+    req.on('error', function(e) {
+      console.log('problem with request: ' + e.message);
+    });
+
+    // write data to request body
+    req.write(JSON.stringify(reqBody));
+    req.end();
+
   }
 
   function new_photo(file){
@@ -78,8 +142,8 @@ module.exports = function() {
       res.setEncoding('utf8');
       res.on('data', function (chunk) {
         var faces = JSON.parse(chunk);
-        console.log(chunk);
-        console.log(faces);
+        //console.log(chunk);
+        //console.log(faces);
 
         for (var i = 0; i < faces.length; i++) {
           var face = faces[i];
@@ -87,9 +151,9 @@ module.exports = function() {
           var height = face.faceRectangle.height;
           var x = face.faceRectangle.left;
           var y = face.faceRectangle.top;
-          console.log(width + ' ' + height + ' ' + x + ' ' + y);
-          console.log(face.faceAttributes.facialHair);
-          console.log(face.faceAttributes.gender);
+        //  console.log(width + ' ' + height + ' ' + x + ' ' + y);
+        //  console.log(face.faceAttributes.facialHair);
+        //  console.log(face.faceAttributes.gender);
           gm(file)
           .crop(width, height, x, y)
           .toBuffer('JPG',function (err, buffer) {
@@ -108,14 +172,12 @@ module.exports = function() {
             }
             visitor.date = Date();
             emotionStack.unshift(visitor);
+            similarStack.unshift(visitor);
 
           });
         }
 
       });
-      res.on('end', function() {
-        console.log('No more data in response.')
-      })
     });
 
     req.on('error', function(e) {
@@ -128,7 +190,7 @@ module.exports = function() {
   }
 
   function capture(){
-    var camera = new raspicam({ mode:"photo", output:"img.jpg", w:1024, h:768, t: 1});
+    var camera = new raspicam({ mode:"photo", output:"img.jpg", w:1024, h:768, t: 1, ex:"antishake"});
     camera.start();
     camera.on("exit", function(err, filename){
       console.log('send photo: ' + "img.jpg");
@@ -142,6 +204,7 @@ module.exports = function() {
     start: function() {
       objInterval = setInterval(capture, 5000); //max of 20 per minute
       objDetectEmotionInterval = setInterval(detectEmotions, 3500); //max of 20 per minute
+      findSimilarInterval = setInterval(findSimilar, 10000); //max of 20 per minute
     },
 
     stop: function(){

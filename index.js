@@ -11,3 +11,9 @@ function presenceStop(){
 
 var camera = new cam();
 var presence = new movement(presenceStart, presenceStop);
+
+
+
+var connect = require('connect');
+var serveStatic = require('serve-static');
+connect().use(serveStatic(__dirname)).listen(8080);
