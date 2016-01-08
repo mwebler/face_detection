@@ -23,6 +23,13 @@ module.exports = function() {
   function saveVisitor(visitor) {
     db.object.visitors.push(visitor);
     db.write();
+    detectEmotions(visitor.img, function(emotion){
+      db('visitors')
+        .chain()
+        .find({ faceId: visitor.faceId })
+        .assign({ emotions: [{img: visitor.img, emotion: emotion, date: visitor.date}]})
+        .value();
+    });
   }
 
   function getHighestEmotion(face) {
@@ -34,11 +41,8 @@ module.exports = function() {
     return emotion;
   }
 
-  function detectEmotions(){
-    var visitor = db.object.emotionStack.pop();
-    db.write();
-    if(visitor == null)
-      return;
+  function detectEmotions(imageFile, callback){
+    var image = fs.readFileSync(imageFile);
 
     var header = {
       "Content-Type": "application/octet-stream",
@@ -54,19 +58,23 @@ module.exports = function() {
       res.setEncoding('utf8');
       res.on('data', function (chunk) {
         var faces = JSON.parse(chunk);
-      //  console.log(chunk);
+        console.log(chunk);
       //  console.log(faces);
+      console.log('emotions from: ' + imageFile);
         var face = faces[0]; //there sould be only 1 face
+        if(!face)
+          callback('neutral');
         var emotion = getHighestEmotion(face);
-        visitor.emotion = emotion;
+        callback(emotion);
       });
     });
     req.on('error', function(e) {
       console.log('problem with request: ' + e.message);
+      callback('neutral');
     });
 
     // write data to request body
-    req.write(visitor.img);
+    req.write(image);
     req.end();
   }
 
@@ -106,7 +114,7 @@ module.exports = function() {
         res.on('data', function (chunk) {
           var faces = JSON.parse(chunk);
           console.log(chunk);
-          if(faces.error != null || faces.length == 0){
+          if(faces.error != null || faces.length == 0 || !faces[0]) {
             console.log("add face");
             addFace(visitor);
             saveVisitor(visitor);
@@ -114,11 +122,23 @@ module.exports = function() {
           }
 
           var face = faces[0];
-          if(!face)
-            return;
 
-          if(face.confidence >= 0.6)
+          if(face.confidence >= 0.6){
             console.log("same face found");
+            detectEmotions(visitor.img, function(emotion){
+              var v = db('visitors').find({ faceId: face.faceId });
+              console.log(face.faceId);
+              console.log(v);
+              var emotions = v.emotions;
+              emotions.push({img: visitor.img, emotion: emotion, date: visitor.date});
+              db('visitors')
+                .chain()
+                .find({ faceId: face.faceId })
+                .assign({ emotions: emotions})
+                .value();
+            });
+
+          }
           else{
             console.log("its a new face");
             addFace(visitor);
@@ -154,8 +174,6 @@ module.exports = function() {
       res.setEncoding('utf8');
       res.on('data', function (chunk) {
         var faces = JSON.parse(chunk);
-        //console.log(chunk);
-        //console.log(faces);
 
         for (var i = 0; i < faces.length; i++) {
           var face = faces[i];
@@ -163,13 +181,11 @@ module.exports = function() {
           var height = face.faceRectangle.height;
           var x = face.faceRectangle.left;
           var y = face.faceRectangle.top;
-        //  console.log(width + ' ' + height + ' ' + x + ' ' + y);
-        //  console.log(face.faceAttributes.facialHair);
-        //  console.log(face.faceAttributes.gender);
+          var fileName = 'img/'+face.faceId+'.jpg';
           gm(file)
           .crop(width, height, x, y)
-          .toBuffer('JPG',function (err, buffer) {
-            if (err) return handle(err);
+          .write(fileName,function (err) {
+            if (err) {console.log(err); return err};
             visitor = {
               faceId: face.faceId,
               age: face.faceAttributes.age,
@@ -180,13 +196,11 @@ module.exports = function() {
                 beard: face.faceAttributes.facialHair.beard,
                 sideburns: face.faceAttributes.facialHair.sideburns
               },
-              img: buffer
+              img: fileName
             }
             visitor.date = Date();
             db.object.similarStack.unshift(visitor);
             db.write();
-
-
           });
         }
 
@@ -216,7 +230,6 @@ module.exports = function() {
   return {
     start: function() {
       objInterval = setInterval(capture, 5000); //max of 20 per minute
-      objDetectEmotionInterval = setInterval(detectEmotions, 3500); //max of 20 per minute
       findSimilarInterval = setInterval(findSimilar, 10000); //max of 20 per minute
     },
 
