@@ -2,6 +2,16 @@ var raspicam = require("raspicam");
 var fs = require('fs');
 var https = require('https');
 var gm = require('gm').subClass({imageMagick: true});
+const low = require('lowdb');
+const storage = require('lowdb/file-async');
+
+const db = low('db.json', { storage });
+
+db.object.similarStack = [];
+db.object.emotionStack = [];
+db.object.visitors = [];
+db.object.faceList = [];
+db.write();
 
 module.exports = function() {
 
@@ -9,13 +19,10 @@ module.exports = function() {
   var findSimilarInterval = null;
   var faceListid = "matheusweblerdkom";
 
-  var emotionStack = [];
-  var similarStack = [];
-  var faceList = [];
-
   var visitors = [];
   function saveVisitor(visitor) {
-    visitors.push(visitor);
+    db.object.visitors.push(visitor);
+    db.write();
   }
 
   function getHighestEmotion(face) {
@@ -28,7 +35,8 @@ module.exports = function() {
   }
 
   function detectEmotions(){
-    var visitor = emotionStack.pop();
+    var visitor = db.object.emotionStack.pop();
+    db.write();
     if(visitor == null)
       return;
 
@@ -51,7 +59,6 @@ module.exports = function() {
         var face = faces[0]; //there sould be only 1 face
         var emotion = getHighestEmotion(face);
         visitor.emotion = emotion;
-        saveVisitor(visitor);
       });
     });
     req.on('error', function(e) {
@@ -64,17 +71,19 @@ module.exports = function() {
   }
 
   function addFace(visitor) {
-    faceList.push(visitor.faceId);
+    db.object.faceList.push(visitor.faceId);
+    db.write();
   }
 
   function findSimilar(){
 
-    var visitor = similarStack.pop();
+    var visitor = db.object.similarStack.pop();
+    db.write();
     if(visitor == null)
       return;
 
       console.log("check similar");
-      console.log("facelist size: " + faceList.length);
+      console.log("facelist size: " + db('faceList').size());
 
       var header = {
         "Content-Type": "application/json",
@@ -83,7 +92,7 @@ module.exports = function() {
 
       var reqBody = {
         faceId: visitor.faceId,
-        faceIds: faceList,
+        faceIds: db.object.faceList,
         maxNumOfCandidatesReturned: 1
       };
 
@@ -100,6 +109,8 @@ module.exports = function() {
           if(faces.error != null || faces.length == 0){
             console.log("add face");
             addFace(visitor);
+            saveVisitor(visitor);
+            return;
           }
 
           var face = faces[0];
@@ -111,6 +122,7 @@ module.exports = function() {
           else{
             console.log("its a new face");
             addFace(visitor);
+            saveVisitor(visitor);
           }
         });
       }
@@ -171,8 +183,9 @@ module.exports = function() {
               img: buffer
             }
             visitor.date = Date();
-            emotionStack.unshift(visitor);
-            similarStack.unshift(visitor);
+            db.object.similarStack.unshift(visitor);
+            db.write();
+
 
           });
         }
