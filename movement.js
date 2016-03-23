@@ -1,8 +1,11 @@
 var five = require("johnny-five");
+var hanadb = require("./hana.js");
+
 
 module.exports = function(callbackStart, callbackStop) {
 
   var board = new five.Board({});
+  var hana = new hanadb();
 
   var motionSensor = false;
   var proximitySensor = false;
@@ -22,7 +25,7 @@ module.exports = function(callbackStart, callbackStop) {
     });
 
     proximity.on("data", function() {
-      if(this.cm < 150)
+      if(this.cm < 200)
         proximitySensor = true;
       else
         proximitySensor = false;
@@ -34,7 +37,6 @@ module.exports = function(callbackStart, callbackStop) {
     // "calibrated" occurs once, at the beginning of a session,
     motion.on("calibrated", function() {
       console.log("calibrated");
-
     });
 
     // "motionstart" events are fired when the "calibrated"
@@ -54,7 +56,14 @@ module.exports = function(callbackStart, callbackStop) {
   });
 
   var interval = setInterval(checkSensor, 1000);
+  var logInterval = setInterval(logPresence, 5000);
 
+  function logPresence(){
+      var presence = "no";
+      if(status == true)
+        presence = "yes";
+      hana.logPresence(presence);
+  }
 
   function checkSensor(){
     if(motionSensor == true || proximitySensor == true){
@@ -63,6 +72,7 @@ module.exports = function(callbackStart, callbackStop) {
         led.on();
       }
       status = true;
+
     }
     else {
       if(status == true){

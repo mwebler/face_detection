@@ -10,6 +10,7 @@
     "johnny-five": "^0.9.17",
     "lowdb": "^0.11.4",
     "raspicam": "^0.2.13",
+    "request": "^2.67.0",
     "serve-static": "^1.10.0"
   },
   "devDependencies": {},
