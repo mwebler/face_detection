@@ -35,7 +35,7 @@ function updateChart(data){
     }
 
     var yes_perc = yes*100.0 / (yes + no)
-    var no_perc = 100.0 - yes;
+    var no_perc = 100.0 - yes_perc;
 
     var data = {
         labels: ["Presence in the booth (%)"],

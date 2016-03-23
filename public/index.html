@@ -32,8 +32,8 @@
 			  <a class="navbar-brand" href="#">Booth Info</a>
 			</div>
 			<ul class="nav navbar-nav">
-			  <li class="active" role="presentation"><a href="#">Home</a></li>
-			  <li role="presentation"><a href="#home" aria-controls="home" role="tab" data-toggle="tab">Charts</a></li>
+			  <li class="active" role="presentation"><a href="#home">Home</a></li>
+			  <li role="presentation"><a href="#charts" aria-controls="home" role="tab" data-toggle="tab">Charts</a></li>
 			  <li role="presentation"><a href="#photos" aria-controls="pshotos" role="tab" data-toggle="tab">Photos</a></li>
 			</ul>
 		  </div>
@@ -45,13 +45,15 @@
           <div class="tab-content">
             <div role="tabpanel" class="tab-pane active" id="home">
               <div class="row">
-                <div class="col-sm-6 col-md-6">
-                  <div id="chart">
+                <div class="col-sm-6 col-md-9" align="center">
+                  <h1>Presence</h1>
+				  <div id="chart">	
                     <canvas id="canvas" ></canvas>
                   </div>
                 </div>
-                <div class="col-sm-6 col-md-6">
-                  <div id="chart-emotion">
+                <div class="col-sm-6 col-md-9" align="center">
+                  <h1>Emotions</h1>
+				  <div id="chart-emotion">
                     <canvas id="canvas-emotion" ></canvas>
                   </div>
                 </div>
